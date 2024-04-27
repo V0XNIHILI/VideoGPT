@@ -157,7 +157,7 @@ class VideoGPT(pl.LightningModule):
 
         return h
     
-    def forward_maskgit(self, h, targets):
+    def forward_maskgit(self, targets, h):
         # h is now of shape: (batch, t, h, w, c)
         dims = h.shape
 
@@ -177,7 +177,7 @@ class VideoGPT(pl.LightningModule):
         
         # logits = self.fc_out(h)
 
-        logits = self.forward_maskgit(h, targets)
+        logits = self.forward_maskgit(targets, h)
 
         loss = F.cross_entropy(shift_dim(logits, -1, 1), targets)
 
