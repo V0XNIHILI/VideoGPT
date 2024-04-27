@@ -81,9 +81,9 @@ class AttentionBlock(nn.Module):
         self.pre_fc_norm = LayerNorm(embd_dim, class_cond_dim)
         self.post_fc_dp = nn.Dropout(dropout)
         self.fc_block = nn.Sequential(
-            nn.Linear(in_features=embd_dim, out_features=embd_dim * 2),
+            nn.Linear(in_features=embd_dim, out_features=embd_dim * 4),
             GeLU2(),
-            nn.Linear(in_features=embd_dim * 2, out_features=embd_dim),
+            nn.Linear(in_features=embd_dim * 4, out_features=embd_dim),
         )
 
     def forward(self, x, cond, decode_step, decode_idx):
