@@ -7,4 +7,5 @@ torchtext
 pytorch_lightning
 scikit-video
 gdown
+av
 torch-maskgit @ git+https://github.com/V0XNIHILI/torch-maskgit@main

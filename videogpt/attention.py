@@ -471,14 +471,6 @@ class AddBroadcastPosEmbed(nn.Module):
              for i in range(n_dim)
         })
 
-        print(embd_dim)
-        print(shape)
-        for i in range(n_dim):
-            print(             (shape[i], embd_dim // n_dim)
-                                        if dim == -1 else
-                                        (embd_dim // n_dim, shape[i]))
-
-
     def forward(self, x, decode_step=None, decode_idx=None):
         embs = []
         for i in range(self.n_dim):
