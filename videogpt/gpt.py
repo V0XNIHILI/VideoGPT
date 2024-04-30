@@ -36,11 +36,13 @@ class VideoGPT(pl.LightningModule):
         # ResNet34 for frame conditioning
         self.use_frame_cond = args.n_cond_frames > 0
         if self.use_frame_cond:
+            CHUNK_FACTOR = 2
+            RESNET_DIM = 512
             frame_cond_shape = (args.n_cond_frames,
-                                args.resolution // 4,
-                                args.resolution // 4,
-                                192)
-            self.resnet = resnet18(1, (1, 4, 4), resnet_dim=192)
+                                args.resolution // CHUNK_FACTOR,
+                                args.resolution // CHUNK_FACTOR,
+                                RESNET_DIM)
+            self.resnet = resnet34(1, (1, CHUNK_FACTOR, CHUNK_FACTOR), resnet_dim=RESNET_DIM)
             self.cond_pos_embd = AddBroadcastPosEmbed(
                 shape=frame_cond_shape[:-1], embd_dim=frame_cond_shape[-1]
             )
