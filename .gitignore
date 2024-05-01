@@ -19,3 +19,4 @@ ffmpeg-release-amd64-static.tar.xz
 
 # Pre-trained VQVAEs
 ucf101_stride4x4x4
+bair_stride4x2x2
