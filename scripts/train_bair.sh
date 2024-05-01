@@ -1,0 +1,1 @@
+python3 scripts/train_videogpt.py --vqvae bair_stride4x2x2 --n_cond_frames 3 --hidden_dim 576 --heads 4 --layers 8 --dropout 0.2 --attn_dropout 0.0 --gpus 2 --gradient_clip_val 1 --batch_size 16 --num_workers 0 --precision 16 --data_path /space/ddenblanken/Projects/VideoGPT/datasets/bair/bair.hdf5 --resolution 64 --sequence_length 16 --max_steps 150000
