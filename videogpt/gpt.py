@@ -8,6 +8,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim.lr_scheduler as lr_scheduler
 import pytorch_lightning as pl
+import numpy as np
 
 from .resnet import resnet34, resnet18
 from .attention import AttentionStack, LayerNorm, AddBroadcastPosEmbed
@@ -37,7 +38,7 @@ class VideoGPT(pl.LightningModule):
         self.use_frame_cond = args.n_cond_frames > 0
         if self.use_frame_cond:
             CHUNK_FACTOR = 2
-            RESNET_DIM = 512
+            RESNET_DIM = 576
             frame_cond_shape = (args.n_cond_frames,
                                 args.resolution // CHUNK_FACTOR,
                                 args.resolution // CHUNK_FACTOR,
@@ -180,12 +181,12 @@ class VideoGPT(pl.LightningModule):
     def forward(self, x, targets, cond, decode_step=None, decode_idx=None):
         h = self.forward_gpt(x, cond, decode_step, decode_idx)
 
-        logits, labels, mask = self.forward_maskgit(targets, h)
+        logits, _, mask = self.forward_maskgit(targets, h)
 
-        loss = F.cross_entropy(shift_dim(logits, -1, 1), labels, reduction='none')
+        loss = F.cross_entropy(shift_dim(logits, -1, 1), targets, reduction='none')
 
         loss = (loss * mask).sum() / mask.sum()
-        loss = loss * torch.prod(self.shape)
+        loss = loss * np.prod(self.shape)
 
         # NOTE: DOUBLE CHECK WHAT THE TARGETS ARE!!!!!!!!
 
@@ -207,10 +208,25 @@ class VideoGPT(pl.LightningModule):
             x = shift_dim(x, 1, -1)
 
         loss, _ = self(x, targets, cond)
+        self.log('train/loss', loss)
         return loss
 
     def validation_step(self, batch, batch_idx):
-        loss = self.training_step(batch, batch_idx)
+        self.vqvae.eval()
+        x = batch['video']
+
+        cond = dict()
+        if self.args.class_cond:
+            label = batch['label']
+            cond['class_cond'] = F.one_hot(label, self.args.class_cond_dim).type_as(x)
+        if self.use_frame_cond:
+            cond['frame_cond'] = x[:, :, :self.args.n_cond_frames]
+
+        with torch.no_grad():
+            targets, x = self.vqvae.encode(x, include_embeddings=True)
+            x = shift_dim(x, 1, -1)
+
+        loss, _ = self(x, targets, cond)
         self.log('val/loss', loss, prog_bar=True)
 
     def configure_optimizers(self):
