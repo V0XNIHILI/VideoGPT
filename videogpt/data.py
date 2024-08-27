@@ -196,7 +196,8 @@ class VideoData(pl.LightningDataModule):
         dataloader = data.DataLoader(
             dataset,
             batch_size=self.args.batch_size,
-            num_workers=self.args.num_workers,
+            num_workers=16,
+            persistent_workers=True,
             pin_memory=True,
             sampler=sampler,
             shuffle=sampler is None

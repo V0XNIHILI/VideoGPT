@@ -1,0 +1,4 @@
+- BAIR with 8 layers
+- sample function with dimensions; update it with sample timestep 
+- check resnet output
+- check targets shape and contents
