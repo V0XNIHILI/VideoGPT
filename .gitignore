@@ -13,3 +13,10 @@ wandb/
 # ffmpeg linux binaries (from: https://johnvansickle.com/ffmpeg/)
 ffmpeg-6.1-amd64-static
 ffmpeg-release-amd64-static.tar.xz
+
+# BAIR dataset
+/bair
+
+# Pre-trained VQVAEs
+ucf101_stride4x4x4
+bair_stride4x2x2

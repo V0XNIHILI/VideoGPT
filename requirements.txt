@@ -7,4 +7,7 @@ torchtext
 pytorch_lightning
 scikit-video
 gdown
+tensorflow # For bair_extract_images.py
+av
+imageio
 torch-maskgit @ git+https://github.com/V0XNIHILI/torch-maskgit@main

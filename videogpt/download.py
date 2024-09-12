@@ -8,7 +8,7 @@ from .vqvae import VQVAE
 from .gpt import VideoGPT
 
 
-def download(id, fname, root=os.path.expanduser('~/.cache/videogpt')):
+def download(id, fname, root=os.path.expanduser('/space/ddenblanken/Projects/VideoGPT')):
     os.makedirs(root, exist_ok=True)
     destination = os.path.join(root, fname)
 
@@ -26,7 +26,7 @@ _VQVAE = {
     'kinetics_stride2x4x4': '1jvtjjtrtE4cy6pl7DK_zWFEPY3RZt2pB' # trained on 16 frames of 128 x 128 images
 }
 
-def load_vqvae(model_name, device=torch.device('cpu'), root=os.path.expanduser('~/.cache/videogpt')):
+def load_vqvae(model_name, device=torch.device('cpu'), root=os.path.expanduser('/space/ddenblanken/Projects/VideoGPT')):
     assert model_name in _VQVAE, f"Invalid model_name: {model_name}"
     filepath = download(_VQVAE[model_name], model_name, root=root)
     vqvae = VQVAE.load_from_checkpoint(filepath).to(device)

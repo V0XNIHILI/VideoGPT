@@ -8,8 +8,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim.lr_scheduler as lr_scheduler
 import pytorch_lightning as pl
+import numpy as np
 
-from .resnet import _, resnet18
+from .resnet import resnet34, resnet18
 from .attention import AttentionStack, LayerNorm, AddBroadcastPosEmbed
 from .utils import shift_dim
 
@@ -36,11 +37,13 @@ class VideoGPT(pl.LightningModule):
         # ResNet34 for frame conditioning
         self.use_frame_cond = args.n_cond_frames > 0
         if self.use_frame_cond:
+            CHUNK_FACTOR = 2
+            RESNET_DIM = 576
             frame_cond_shape = (args.n_cond_frames,
-                                args.resolution // 4,
-                                args.resolution // 4,
-                                192)
-            self.resnet = resnet18(1, (1, 4, 4), resnet_dim=192)
+                                args.resolution // CHUNK_FACTOR,
+                                args.resolution // CHUNK_FACTOR,
+                                RESNET_DIM)
+            self.resnet = resnet34(1, (1, CHUNK_FACTOR, CHUNK_FACTOR), resnet_dim=RESNET_DIM)
             self.cond_pos_embd = AddBroadcastPosEmbed(
                 shape=frame_cond_shape[:-1], embd_dim=frame_cond_shape[-1]
             )
@@ -128,6 +131,7 @@ class VideoGPT(pl.LightningModule):
                     embeddings_slice = embeddings[prev_idx]
                     samples_slice = samples[prev_idx]
 
+                # TODO: this line should be updated for proper sampling
                 logits = self(embeddings_slice, samples_slice, cond,
                               decode_step=i, decode_idx=idx)[1]
                 # squeeze all possible dim except batch dimension
@@ -141,7 +145,7 @@ class VideoGPT(pl.LightningModule):
 
         return samples # BCTHW in [0, 1]
 
-    def forward_without_maskgit(self, x, cond, decode_step=None, decode_idx=None):
+    def forward_gpt(self, x, cond, decode_step=None, decode_idx=None):
         if self.use_frame_cond:
             if decode_step is None:
                 cond['frame_cond'] = self.cond_pos_embd(self.resnet(cond['frame_cond']))
@@ -157,7 +161,7 @@ class VideoGPT(pl.LightningModule):
 
         return h
     
-    def forward_maskgit(self, h, targets):
+    def forward_maskgit(self, targets, h):
         # h is now of shape: (batch, t, h, w, c)
         dims = h.shape
 
@@ -165,21 +169,26 @@ class VideoGPT(pl.LightningModule):
         h = h.view(-1, *h.shape[2:])
         maskgit_targets = targets.view(-1, *targets.shape[2:])
 
-        logits, _, _ = self.maskgit(maskgit_targets, h)
+        logits, labels, mask = self.maskgit(maskgit_targets, h)
 
         # Split the batch and time dimensions again
         logits = logits.view(dims[0], dims[1], *logits.shape[1:])
+        labels = labels.view(dims[0], dims[1], *labels.shape[1:])
+        mask = mask.view(dims[0], dims[1], *mask.shape[1:])
 
-        return logits
+        return logits, labels, mask
     
     def forward(self, x, targets, cond, decode_step=None, decode_idx=None):
-        h = self.forward_without_maskgit(x, cond, decode_step, decode_idx)
-        
-        # logits = self.fc_out(h)
+        h = self.forward_gpt(x, cond, decode_step, decode_idx)
 
-        logits = self.forward_maskgit(h, targets)
+        logits, _, mask = self.forward_maskgit(targets, h)
 
-        loss = F.cross_entropy(shift_dim(logits, -1, 1), targets)
+        loss = F.cross_entropy(shift_dim(logits, -1, 1), targets, reduction='none')
+
+        loss = (loss * mask).sum() / mask.sum()
+        loss = loss * np.prod(self.shape)
+
+        # NOTE: DOUBLE CHECK WHAT THE TARGETS ARE!!!!!!!!
 
         return loss, logits
 
@@ -199,10 +208,25 @@ class VideoGPT(pl.LightningModule):
             x = shift_dim(x, 1, -1)
 
         loss, _ = self(x, targets, cond)
+        self.log('train/loss', loss)
         return loss
 
     def validation_step(self, batch, batch_idx):
-        loss = self.training_step(batch, batch_idx)
+        self.vqvae.eval()
+        x = batch['video']
+
+        cond = dict()
+        if self.args.class_cond:
+            label = batch['label']
+            cond['class_cond'] = F.one_hot(label, self.args.class_cond_dim).type_as(x)
+        if self.use_frame_cond:
+            cond['frame_cond'] = x[:, :, :self.args.n_cond_frames]
+
+        with torch.no_grad():
+            targets, x = self.vqvae.encode(x, include_embeddings=True)
+            x = shift_dim(x, 1, -1)
+
+        loss, _ = self(x, targets, cond)
         self.log('val/loss', loss, prog_bar=True)
 
     def configure_optimizers(self):

@@ -88,29 +88,29 @@ class AttentionBlock(nn.Module):
 
     def forward(self, x, cond, decode_step, decode_idx):
         h = self.pre_attn_norm(x, cond)
-        if self.training:
-            h = checkpoint(self.attn, h, h, h, decode_step, decode_idx)
-        else:
-            h = self.attn(h, h, h, decode_step, decode_idx)
+        # if self.training:
+            # h = checkpoint(self.attn, h, h, h, decode_step, decode_idx)
+        # else:
+        h = self.attn(h, h, h, decode_step, decode_idx)
         h = self.post_attn_dp(h)
         x = x + h
 
         if self.use_frame_cond:
             h = self.pre_enc_norm(x, cond)
-            if self.training:
-                h = checkpoint(self.enc_attn, h, cond['frame_cond'], cond['frame_cond'],
-                               decode_step, decode_idx)
-            else:
-                h = self.enc_attn(h, cond['frame_cond'], cond['frame_cond'],
-                                  decode_step, decode_idx)
+            # if self.training:
+            #     h = checkpoint(self.enc_attn, h, cond['frame_cond'], cond['frame_cond'],
+            #                    decode_step, decode_idx)
+            # else:
+            h = self.enc_attn(h, cond['frame_cond'], cond['frame_cond'],
+                                decode_step, decode_idx)
             h = self.post_enc_dp(h)
             x = x + h
 
         h = self.pre_fc_norm(x, cond)
-        if self.training:
-            h = checkpoint(self.fc_block, h)
-        else:
-            h = self.fc_block(h)
+        # if self.training:
+        #     h = checkpoint(self.fc_block, h)
+        # else:
+        h = self.fc_block(h)
         h = self.post_fc_dp(h)
         x = x + h
 
